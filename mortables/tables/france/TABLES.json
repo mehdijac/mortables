@@ -1,0 +1,49 @@
+{
+  "country": "France",
+  "tables": [
+    {
+      "id": "TH0002",
+      "name": "TH 00-02",
+      "description": "Table de mortalité masculine du moment (INSEE 2000-2002)",
+      "type": "period",
+      "gender": "M",
+      "regulation": "Arrêté du 20/12/2005",
+      "usage": "Provisionnement des engagements en cas de décès",
+      "file": "TH0002.csv",
+      "format": "csv"
+    },
+    {
+      "id": "TF0002",
+      "name": "TF 00-02",
+      "description": "Table de mortalité féminine du moment (INSEE 2000-2002)",
+      "type": "period",
+      "gender": "F",
+      "regulation": "Arrêté du 20/12/2005",
+      "usage": "Provisionnement des engagements en cas de décès",
+      "file": "TF0002.csv",
+      "format": "csv"
+    },
+    {
+      "id": "TGH05",
+      "name": "TGH 05",
+      "description": "Table générationnelle masculine pour rentes viagères (INSEE)",
+      "type": "generational",
+      "gender": "M",
+      "regulation": "Arrêté du 01/08/2006",
+      "usage": "Tarification et provisionnement des rentes viagères",
+      "file": "TGH05.json",
+      "format": "json"
+    },
+    {
+      "id": "TGF05",
+      "name": "TGF 05",
+      "description": "Table générationnelle féminine pour rentes viagères (INSEE)",
+      "type": "generational",
+      "gender": "F",
+      "regulation": "Arrêté du 01/08/2006",
+      "usage": "Tarification et provisionnement des rentes viagères",
+      "file": "TGF05.json",
+      "format": "json"
+    }
+  ]
+}
