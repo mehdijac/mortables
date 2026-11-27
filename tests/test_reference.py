@@ -23,6 +23,7 @@ SHA256 = {
     "TF0002.csv": "f071bd8e28543a5191960daa3e9dfcd4d37a37ad65795cff495abd6087f734f4",
     "TGH05.csv": "9a197fd3979d143269a7dd3f11bfe7034d881ec1920119a6ec3f634d42a90362",
     "TGF05.csv": "919631ed82d4de0123eb0222bc766d13072ac3b4ee20cdba96479ce62ae596a7",
+    "TGHF05.csv": "d1eb943fb3397dcb1d6683c60ce690f962d7098ac2ec24824a86c56169216fca",
 }
 
 
@@ -114,3 +115,16 @@ def test_generational_tables_more_prudent_for_annuities():
         for generation in (1940, 1950, 1960, 1980):
             tg = get_table(gen_id, generation=generation)
             assert tg.life_expectancy(65) > get_table(period_id).life_expectancy(65)
+
+
+def test_tghf05_is_60_40_mix_of_lx():
+    """Arrêté du 18/11/2024: lx = round(0.6 · lx TGH05 + 0.4 · lx TGF05)."""
+    import numpy as np
+
+    for generation in (1900, 1950, 1960, 1985, 2005):
+        h = get_table("TGH05", generation=generation).lx
+        f = get_table("TGF05", generation=generation).lx
+        u = get_table("TGHF05", generation=generation).lx
+        expected = np.round(0.6 * h + 0.4 * f)
+        assert np.array_equal(np.isnan(u), np.isnan(expected))
+        assert np.array_equal(u[~np.isnan(u)], expected[~np.isnan(expected)])

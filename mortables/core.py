@@ -218,6 +218,114 @@ class MortalityTable:
         """Curtate life expectancy at *age*."""
         return float(self.ex[self.check_age(age)])
 
+    # -- Fractional ages (linear interpolation of lx, i.e. UDD) ---------------
+
+    def check_fractional_age(self, age: float) -> float:
+        """Validate a (possibly fractional) age within ``[min_age, max_age + 1]``."""
+        if isinstance(age, (bool, np.bool_)):
+            raise TypeError("age must be a number")
+        age = float(age)
+        if not np.isfinite(age) or age < self.min_age or age > self.max_age + 1:
+            raise ValueError(
+                f"Age {age} is out of range [{self.min_age}, {self.max_age + 1}] "
+                f"for table '{self.name}'"
+            )
+        return age
+
+    def lx_at(self, x):
+        """
+        lx at (possibly fractional) age(s) *x*, by **linear interpolation**
+        between integer ages (uniform distribution of deaths, the usual
+        convention in France).  ``l(max_age + 1) = 0``; beyond, 0.
+        """
+        x = np.asarray(x, dtype=float)
+        start = self.min_age
+        nodes = np.arange(start, self.max_age + 2, dtype=float)
+        values = np.append(self.lx[start:], 0.0)
+        out = np.interp(x, nodes, values, right=0.0)
+        out = np.where(x < start, np.nan, out)
+        return float(out) if out.ndim == 0 else out
+
+    def tpx(self, age: float, t):
+        """Probability that a life aged *age* survives *t* more years (t ≥ 0)."""
+        age = self.check_fractional_age(age)
+        l0 = self.lx_at(age)
+        if l0 <= 0:
+            return 0.0 if np.ndim(t) == 0 else np.zeros(np.shape(t))
+        return self.lx_at(age + np.asarray(t, dtype=float)) / l0
+
+    # -- Adjusted tables -------------------------------------------------------
+
+    def _with_qx(self, qx: np.ndarray, name: str, description: str,
+                 adjustment: Dict) -> "MortalityTable":
+        """New table with the same layout, lx rebuilt from *qx* (radix kept)."""
+        qx = np.asarray(qx, dtype=float).copy()
+        qx[-1] = 1.0
+        lx = np.full_like(qx, np.nan)
+        defined = np.flatnonzero(~np.isnan(qx))
+        if defined.size:
+            start = int(defined[0])
+            radix = self.lx[start] if not np.isnan(self.lx[start]) else 100_000.0
+            lx[start] = radix
+            lx[start + 1:] = radix * np.cumprod(1.0 - qx[start:-1])
+        meta = dict(self.metadata)
+        meta["adjustments"] = list(meta.get("adjustments", [])) + [adjustment]
+        return MortalityTable(
+            name=name,
+            description=description,
+            gender=self.gender,
+            table_type=self.table_type,
+            ages=self.ages.copy(),
+            qx=qx,
+            lx=lx,
+            generation=self.generation,
+            metadata=meta,
+        )
+
+    def age_shifted(self, years: int) -> "MortalityTable":
+        """
+        Age shift (« décalage d'âge »): ``q'(x) = q(x + years)``.
+
+        ``years > 0`` ages the insured (more mortality), ``years < 0`` makes
+        them younger (less mortality, more prudent for annuities).  Ages that
+        fall outside the table get ``q = 1`` (beyond the end) or are left
+        undefined (before the start).
+        """
+        k = _as_age(years)
+        qx = np.full_like(self.qx, np.nan)
+        n = len(self.qx)
+        for x in range(n):
+            src = x + k
+            if src >= n:
+                qx[x] = 1.0
+            elif src >= 0:
+                qx[x] = self.qx[src]
+        if k < 0:  # first ages map before the table start: undefined
+            qx[: max(0, self.min_age - k)] = np.nan
+        return self._with_qx(
+            qx,
+            name=f"{self.name}{k:+d}a",
+            description=f"{self.description} — décalage d'âge {k:+d} an(s)",
+            adjustment={"type": "age_shift", "years": k},
+        )
+
+    def scaled(self, factor: float) -> "MortalityTable":
+        """
+        Multiply every qx by *factor* (capped at 1): abatement (``factor < 1``)
+        or loading (``factor > 1``).  E.g. Solvency II longevity shock:
+        ``scaled(0.80)``; mortality shock: ``scaled(1.15)``.
+        """
+        factor = float(factor)
+        if not factor >= 0:
+            raise ValueError(f"factor must be ≥ 0, got {factor}")
+        qx = np.minimum(self.qx * factor, 1.0)
+        return self._with_qx(
+            qx,
+            name=f"{self.name}x{factor:g}",
+            description=f"{self.description} — qx × {factor:g}",
+            adjustment={"type": "scale", "factor": factor},
+        )
+
     def __repr__(self) -> str:
         gen = f", generation={self.generation}" if self.generation else ""
         return (
@@ -289,6 +397,8 @@ _ALIASES = {
     "TF": "TF0002",
     "TGH2005": "TGH05",
     "TGF2005": "TGF05",
+    "TGHF2005": "TGHF05",
+    "TGHF": "TGHF05",
 }
 
 

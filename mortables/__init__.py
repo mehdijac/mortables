@@ -19,7 +19,7 @@ Quick start::
 from . import cashflows, life, viz
 from .core import MortalityTable, get_table, list_tables
 
-__version__ = "0.1.2"
+__version__ = "0.2.0"
 __all__ = [
     "MortalityTable",
     "get_table",

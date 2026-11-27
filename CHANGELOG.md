@@ -4,6 +4,28 @@ Toutes les modifications notables de ce projet sont documentées ici.
 
 Le format suit [Keep a Changelog](https://keepachangelog.com/fr/1.0.0/).
 
+## [0.2.0] — 2026-11-27
+
+### Ajouté
+- **`life.annuity()`** : rente viagère générale, valorisée exactement sous interpolation
+  linéaire des lx (UDD) :
+  - fréquence de paiement (`frequency=12` mensuelle, `4` trimestrielle…) ;
+  - terme à échoir ou échu (`timing="advance"` / `"arrears"`) ;
+  - âge non entier, ou dates (`birth_date`, `valuation_date`) avec génération déduite ;
+  - rente temporaire (`term`), différée (`deferred`), annuités garanties (`guaranteed`) ;
+  - **réversion** (`reversion=0.6`, `spouse_table`, `spouse_age` / `spouse_birth_date`).
+- **`life.exact_age()`** : âge exact (jours/365,25, mois révolus, années révolues).
+- **Table `TGHF05`** : table générationnelle non genrée pour la retraite supplémentaire
+  collective (arrêté du 18/11/2024, loi Industrie verte) : lx = 0,6 × TGH05 + 0,4 × TGF05,
+  arrondi à l'entier.
+- `MortalityTable.lx_at()`, `MortalityTable.tpx()` : survie à des âges non entiers.
+- `MortalityTable.age_shifted(k)` (décalage d'âge) et `MortalityTable.scaled(f)`
+  (abattement / chargement des qx, chocs Solvabilité 2).
+- Tests de référence externes : 42 rentes publiées par SPAC Actuaires (TGH05, TGF05,
+  TGHF05, avec et sans réversion à 60 %) retrouvées au centime.
+- Exemple `examples/portefeuille_rentiers.ipynb`.
+- Publication automatique sur PyPI à chaque tag `vX.Y.Z` (Trusted Publishing).
+
 ## [0.1.2] — 2026-11-27
 
 > Première version publiée sur PyPI depuis la 0.1.0 : elle inclut aussi tous les
