@@ -4,6 +4,22 @@ Toutes les modifications notables de ce projet sont documentées ici.
 
 Le format suit [Keep a Changelog](https://keepachangelog.com/fr/1.0.0/).
 
+## [Non publié]
+
+### Corrigé
+- **Graphiques** (`viz`) :
+  - dans Jupyter, le graphique s'affichait deux fois ; il s'affiche désormais une seule fois ;
+  - dans un script, rien ne s'affichait : nouveaux paramètres `save="fichier.png"` et
+    `show=True` sur toutes les fonctions ;
+  - les figures sont libérées de pyplot (plus d'accumulation mémoire dans une boucle) ;
+  - `plot_cashflows` : paiements et valeurs actualisées sur le même axe (même unité),
+    au lieu de deux axes d'échelles différentes ;
+  - message d'installation de matplotlib corrigé (`pip install "mortables[viz]"`,
+    guillemets nécessaires sous zsh).
+
+### Ajouté
+- Tests des graphiques (`tests/test_viz.py`).
+
 ## [0.1.1] — 2026-11-27
 
 > ⚠️ **Correctif majeur — tous les utilisateurs de la 0.1.0 doivent mettre à jour.**

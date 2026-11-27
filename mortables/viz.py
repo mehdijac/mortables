@@ -1,14 +1,20 @@
 """
 Visualization — standard actuarial mortality charts.
 
-All functions return a ``matplotlib.figure.Figure`` so they can be displayed
-interactively or saved to file.
+All functions return a ``matplotlib.figure.Figure``:
 
-Requires ``matplotlib`` (optional dependency).
+* **Jupyter**: the chart is displayed once when the call is the last line of
+  the cell (``viz.plot_qx(["TH0002"])``).
+* **Script**: pass ``show=True`` to open a window, or ``save="qx.png"`` to
+  write a file (or call ``fig.savefig(...)`` on the returned figure).
+
+Requires ``matplotlib``: ``pip install "mortables[viz]"`` or
+``uv add "mortables[viz]"``.
 """
 
 from __future__ import annotations
 
+import os
 from typing import TYPE_CHECKING, List, Optional, Sequence, Union
 
 import numpy as np
@@ -26,9 +32,26 @@ def _ensure_matplotlib():
         return plt
     except ImportError:
         raise ImportError(
-            "matplotlib is required for visualization. "
-            "Install it with:  pip install mortables[viz]"
-        )
+            "matplotlib is required for visualization. Install it with:\n"
+            '    pip install "mortables[viz]"   (or: uv add "mortables[viz]")'
+        ) from None
+
+
+def _finish(fig, save, show):
+    """Lay out, optionally save/show, then release the figure from pyplot.
+
+    Closing the figure avoids a double display in Jupyter (pyplot's automatic
+    display + the returned value) and memory build-up in loops; the returned
+    Figure can still be displayed, saved or modified.
+    """
+    plt = _ensure_matplotlib()
+    fig.tight_layout()
+    if save is not None:
+        fig.savefig(os.fspath(save), dpi=150, bbox_inches="tight")
+    if show:
+        plt.show()
+    plt.close(fig)
+    return fig
 
 
 def _resolve_tables(
@@ -56,6 +79,8 @@ def plot_qx(
     generation: Optional[int] = None,
     title: Optional[str] = None,
     figsize: tuple = (10, 6),
+    save: Optional[Union[str, os.PathLike]] = None,
+    show: bool = False,
 ):
     """
     Plot mortality rates qx for one or more tables.
@@ -72,6 +97,11 @@ def plot_qx(
         Birth year for generational tables.
     title : str, optional
     figsize : tuple
+    save : str or path, optional
+        If given, save the chart to this file (PNG, PDF, SVG…).
+    show : bool
+        If ``True``, open the chart in a window (scripts). Not needed in
+        Jupyter.
 
     Returns
     -------
@@ -97,8 +127,7 @@ def plot_qx(
     ax.set_title(title or "Courbe de mortalité", fontsize=14)
     ax.legend(fontsize=11)
     ax.grid(True, alpha=0.3)
-    fig.tight_layout()
-    return fig
+    return _finish(fig, save, show)
 
 
 # ---------------------------------------------------------------------------
@@ -112,6 +141,8 @@ def plot_survival(
     normalize: bool = True,
     title: Optional[str] = None,
     figsize: tuple = (10, 6),
+    save: Optional[Union[str, os.PathLike]] = None,
+    show: bool = False,
 ):
     """
     Plot survival curves lx (or normalized to 1.0).
@@ -125,6 +156,11 @@ def plot_survival(
         If ``True``, lx is divided by the radix so the curve starts at 1.0.
     title : str, optional
     figsize : tuple
+    save : str or path, optional
+        If given, save the chart to this file (PNG, PDF, SVG…).
+    show : bool
+        If ``True``, open the chart in a window (scripts). Not needed in
+        Jupyter.
 
     Returns
     -------
@@ -153,8 +189,7 @@ def plot_survival(
     ax.set_title(title or "Courbe de survie", fontsize=14)
     ax.legend(fontsize=11)
     ax.grid(True, alpha=0.3)
-    fig.tight_layout()
-    return fig
+    return _finish(fig, save, show)
 
 
 # ---------------------------------------------------------------------------
@@ -167,6 +202,8 @@ def plot_life_expectancy(
     generation: Optional[int] = None,
     title: Optional[str] = None,
     figsize: tuple = (10, 6),
+    save: Optional[Union[str, os.PathLike]] = None,
+    show: bool = False,
 ):
     """
     Plot curtate life expectancy ex as a function of age.
@@ -178,6 +215,11 @@ def plot_life_expectancy(
     generation : int, optional
     title : str, optional
     figsize : tuple
+    save : str or path, optional
+        If given, save the chart to this file (PNG, PDF, SVG…).
+    show : bool
+        If ``True``, open the chart in a window (scripts). Not needed in
+        Jupyter.
 
     Returns
     -------
@@ -201,8 +243,7 @@ def plot_life_expectancy(
     ax.set_title(title or "Espérance de vie par âge", fontsize=14)
     ax.legend(fontsize=11)
     ax.grid(True, alpha=0.3)
-    fig.tight_layout()
-    return fig
+    return _finish(fig, save, show)
 
 
 # ---------------------------------------------------------------------------
@@ -216,6 +257,8 @@ def plot_comparison(
     generation: Optional[int] = None,
     title: Optional[str] = None,
     figsize: tuple = (12, 6),
+    save: Optional[Union[str, os.PathLike]] = None,
+    show: bool = False,
 ):
     """
     Compare two tables by plotting the ratio qx_A / qx_B.
@@ -229,6 +272,11 @@ def plot_comparison(
     generation : int, optional
     title : str, optional
     figsize : tuple
+    save : str or path, optional
+        If given, save the chart to this file (PNG, PDF, SVG…).
+    show : bool
+        If ``True``, open the chart in a window (scripts). Not needed in
+        Jupyter.
 
     Returns
     -------
@@ -263,8 +311,7 @@ def plot_comparison(
         fontsize=14,
     )
     ax.grid(True, alpha=0.3, axis="y")
-    fig.tight_layout()
-    return fig
+    return _finish(fig, save, show)
 
 
 # ---------------------------------------------------------------------------
@@ -276,6 +323,8 @@ def plot_cashflows(
     show_pv: bool = True,
     title: Optional[str] = None,
     figsize: tuple = (12, 6),
+    save: Optional[Union[str, os.PathLike]] = None,
+    show: bool = False,
 ):
     """
     Plot projected cash flows from :func:`mortables.cashflows.project`.
@@ -288,6 +337,11 @@ def plot_cashflows(
         If ``True``, overlay the present-value line.
     title : str, optional
     figsize : tuple
+    save : str or path, optional
+        If given, save the chart to this file (PNG, PDF, SVG…).
+    show : bool
+        If ``True``, open the chart in a window (scripts). Not needed in
+        Jupyter.
 
     Returns
     -------
@@ -305,23 +359,22 @@ def plot_cashflows(
         label="Paiement attendu",
     )
     ax1.set_xlabel("Année", fontsize=12)
-    ax1.set_ylabel("Paiement attendu (€)", fontsize=12, color="#3498db")
 
+    ax1.set_ylabel("Montant (€)", fontsize=12)
     if show_pv:
-        ax2 = ax1.twinx()
-        ax2.plot(
+        # same unit (€): plot on the same axis so both series share one scale
+        ax1.plot(
             flows["year"],
             flows["pv_payment"],
             color="#e74c3c",
             linewidth=2,
             label="Valeur actualisée",
         )
-        ax2.set_ylabel("Valeur actualisée (€)", fontsize=12, color="#e74c3c")
+    ax1.legend(fontsize=11)
 
     ax1.set_title(title or "Projection des flux de trésorerie", fontsize=14)
     ax1.grid(True, alpha=0.3)
-    fig.tight_layout()
-    return fig
+    return _finish(fig, save, show)
 
 
 # ---------------------------------------------------------------------------
@@ -335,6 +388,8 @@ def plot_generations(
     age_range: Optional[tuple] = (50, 100),
     title: Optional[str] = None,
     figsize: tuple = (10, 6),
+    save: Optional[Union[str, os.PathLike]] = None,
+    show: bool = False,
 ):
     """
     Compare mortality across generations for a generational table.
@@ -349,6 +404,11 @@ def plot_generations(
     age_range : tuple, optional
     title : str, optional
     figsize : tuple
+    save : str or path, optional
+        If given, save the chart to this file (PNG, PDF, SVG…).
+    show : bool
+        If ``True``, open the chart in a window (scripts). Not needed in
+        Jupyter.
 
     Returns
     -------
@@ -361,4 +421,6 @@ def plot_generations(
         age_range=age_range,
         title=title or f"Mortalité par génération ({table_id})",
         figsize=figsize,
+        save=save,
+        show=show,
     )
