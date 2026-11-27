@@ -231,9 +231,13 @@ Seuls les textes publiés au Journal officiel font foi.
 ```bash
 git clone https://github.com/mehdijac/mortables.git
 cd mortables
-pip install -e ".[dev]"
-pytest -v
+uv sync              # crée .venv et installe le package + les outils de dev (uv.lock)
+uv run pytest -v
+uv run ruff check .
+uv build             # construit sdist et wheel dans dist/
 ```
+
+Le projet est géré avec [uv](https://docs.astral.sh/uv/).
 
 Voir [CONTRIBUTING.md](CONTRIBUTING.md) pour contribuer.
 

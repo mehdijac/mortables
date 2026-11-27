@@ -40,7 +40,9 @@ Le format suit [Keep a Changelog](https://keepachangelog.com/fr/1.0.0/).
 ### Ajouté
 - `tests/test_reference.py` : valeurs officielles (lx, espérances de vie) et empreinte
   SHA-256 des fichiers de données.
-- Workflow de CI GitHub Actions (lint + tests, Python 3.9 à 3.13).
+- Workflow de CI GitHub Actions (lint + tests + build, Python 3.9 à 3.13).
+- Projet géré avec **uv** (`uv.lock`, `.python-version`, outils de dev dans
+  `[dependency-groups]`) : `uv sync`, `uv run pytest`, `uv build`.
 
 ## [0.1.0] — 2026-02-21
 

@@ -16,19 +16,18 @@ Ouvrez une [issue](https://github.com/mehdijac/mortables/issues) en décrivant :
 git clone https://github.com/mehdijac/mortables.git
 cd mortables
 
-# Créer un environnement virtuel
-python -m venv .venv
-source .venv/bin/activate  # Linux/macOS
-# .venv\Scripts\activate   # Windows
-
-# Installer en mode développement
-pip install -e ".[dev]"
+# Installer l'environnement (uv : https://docs.astral.sh/uv/)
+uv sync
 
 # Lancer les tests
-pytest
+uv run pytest
 
 # Vérifier le style
-ruff check .
+uv run ruff check .
+
+# Ajouter une dépendance
+uv add <paquet>            # dépendance du package
+uv add --dev <paquet>      # outil de développement
 ```
 
 ## Ajouter une table de mortalité
