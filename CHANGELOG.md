@@ -4,7 +4,10 @@ Toutes les modifications notables de ce projet sont documentées ici.
 
 Le format suit [Keep a Changelog](https://keepachangelog.com/fr/1.0.0/).
 
-## [Non publié]
+## [0.1.2] — 2026-11-27
+
+> Première version publiée sur PyPI depuis la 0.1.0 : elle inclut aussi tous les
+> correctifs de la 0.1.1 (non publiée), dont les **tables officielles**.
 
 ### Corrigé
 - **Graphiques** (`viz`) :
