@@ -9,19 +9,17 @@ Quick start::
     th = get_table("TH0002")
     print(th.life_expectancy(65))
 
-    # Generational table
+    # Generational table (official lx, one column per birth year)
     tg = get_table("TGH05", generation=1960)
 
     # Actuarial calculations
     print(life.annuity_due(th, age=65, rate=0.02))
 """
 
+from . import cashflows, life, viz
 from .core import MortalityTable, get_table, list_tables
-from . import life
-from . import cashflows
-from . import viz
 
-__version__ = "0.1.0"
+__version__ = "0.1.1"
 __all__ = [
     "MortalityTable",
     "get_table",

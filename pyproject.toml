@@ -4,13 +4,13 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "mortables"
-version = "0.1.0"
+version = "0.1.1"
 description = "Tables de mortalité réglementaires françaises et fonctions actuarielles"
 readme = "README.md"
 license = "MIT"
 requires-python = ">=3.9"
 authors = [
-    { name = "Mehdi Yacoubi", email = "mehdiyacoubi95@example.com" },
+    { name = "Mehdi Yacoubi" },
 ]
 keywords = [
     "actuarial", "mortality", "life insurance", "annuity",
@@ -46,16 +46,16 @@ dev = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/yourname/mortables"
-Documentation = "https://github.com/yourname/mortables#readme"
-Repository = "https://github.com/yourname/mortables"
-Issues = "https://github.com/yourname/mortables/issues"
+Homepage = "https://github.com/mehdijac/mortables"
+Documentation = "https://github.com/mehdijac/mortables#readme"
+Repository = "https://github.com/mehdijac/mortables"
+Issues = "https://github.com/mehdijac/mortables/issues"
 
 [tool.setuptools.packages.find]
 include = ["mortables*"]
 
 [tool.setuptools.package-data]
-mortables = ["tables/**/*.csv", "tables/**/*.json"]
+mortables = ["tables/*/*.csv", "tables/*/*.json"]
 
 [tool.ruff]
 line-length = 88
