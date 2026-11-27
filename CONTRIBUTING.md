@@ -61,3 +61,14 @@ age,1900,1901,...,2005
 - Docstrings en anglais (pour la compatibilité avec les outils de documentation)
 - Commentaires et messages utilisateur en français quand pertinent
 - Tests avec pytest
+
+## Publier une version
+
+1. Mettre à jour `version` dans `pyproject.toml` et `__version__` dans `mortables/__init__.py`,
+   puis `uv lock`.
+2. Renommer la section `[Non publié]` du CHANGELOG en `[X.Y.Z] — AAAA-MM-JJ`.
+3. Fusionner sur `main` via une pull request.
+4. Taguer et pousser : `git tag -a vX.Y.Z -m "mortables X.Y.Z" && git push origin vX.Y.Z`.
+
+Le workflow `Release` vérifie que le tag correspond à la version, lance les tests, publie sur
+PyPI (Trusted Publishing, sans token) et crée la release GitHub avec les notes du CHANGELOG.
