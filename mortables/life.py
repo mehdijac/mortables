@@ -50,46 +50,74 @@ class CommutationTable:
     table_name: str
 
 
+def _check_rate(rate: float) -> float:
+    rate = float(rate)
+    if not rate > -1.0:
+        raise ValueError(f"rate must be > -1, got {rate}")
+    return rate
+
+
+def _check_term(term) -> int:
+    if isinstance(term, bool) or not float(term).is_integer() or term < 0:
+        raise ValueError(f"term must be a non-negative integer, got {term!r}")
+    return int(term)
+
+
 def commutation(table: MortalityTable, rate: float) -> CommutationTable:
     """
     Compute the full set of commutation numbers.
+
+    Results are cached on the table for each rate, so repeated calls
+    (annuities, premiums, reserves) do not recompute them.
 
     Parameters
     ----------
     table : MortalityTable
     rate : float
-        Annual technical interest rate (e.g. 0.02 for 2 %).
+        Annual technical interest rate (e.g. 0.02 for 2 %).  Negative rates
+        are allowed (must be > -1).
 
     Returns
     -------
     CommutationTable
+        Columns are ``NaN`` at ages where the table is not defined.
     """
+    rate = _check_rate(rate)
+    key = ("commutation", rate)
+    cached = table._cache.get(key)
+    if cached is not None:
+        return cached
+
     v = 1.0 / (1.0 + rate)  # discount factor
-    n = len(table.ages)
+    ages = table.ages.astype(float)
+    lx = table.lx.astype(float)
 
     # Dx = lx · v^x
-    Dx = table.lx.astype(float) * (v ** table.ages.astype(float))
+    Dx = lx * v ** ages
 
     # Cx = dx · v^(x+1)  where dx = lx · qx
-    dx = table.lx.astype(float) * table.qx
-    Cx = dx * (v ** (table.ages.astype(float) + 1))
+    Cx = lx * table.qx * v ** (ages + 1)
 
-    # Nx = sum of Dx from age x to omega
-    Nx = np.flip(np.cumsum(np.flip(Dx)))
+    def _rev_cumsum(a: np.ndarray) -> np.ndarray:
+        return np.flip(np.cumsum(np.flip(a)))
 
-    # Sx = sum of Nx from age x to omega
-    Sx = np.flip(np.cumsum(np.flip(Nx)))
+    Nx = _rev_cumsum(Dx)
+    Sx = _rev_cumsum(Nx)
+    Mx = _rev_cumsum(Cx)
+    Rx = _rev_cumsum(Mx)
 
-    # Mx = sum of Cx from age x to omega
-    Mx = np.flip(np.cumsum(np.flip(Cx)))
-
-    # Rx = sum of Mx from age x to omega
-    Rx = np.flip(np.cumsum(np.flip(Mx)))
-
-    return CommutationTable(
+    ct = CommutationTable(
         Dx=Dx, Nx=Nx, Sx=Sx, Cx=Cx, Mx=Mx, Rx=Rx,
         rate=rate, table_name=table.name,
     )
+    table._cache[key] = ct
+    return ct
+
+
+def _prepare(table: MortalityTable, age, rate: float):
+    """Validate inputs and return (commutation table, age)."""
+    age = table.check_age(age)
+    return commutation(table, rate), age
 
 
 # ---------------------------------------------------------------------------
@@ -143,17 +171,18 @@ def annuity_due(
     float
         Present value per unit of annual payment.
     """
-    ct = commutation(table, rate)
+    ct, age = _prepare(table, age, rate)
     if ct.Dx[age] == 0:
         return 0.0
 
     if term is None:
-        return ct.Nx[age] / ct.Dx[age]
+        return float(ct.Nx[age] / ct.Dx[age])
     else:
+        term = _check_term(term)
         end_age = min(age + term, table.max_age + 1)
         if end_age > table.max_age:
-            return ct.Nx[age] / ct.Dx[age]
-        return (ct.Nx[age] - ct.Nx[end_age]) / ct.Dx[age]
+            return float(ct.Nx[age] / ct.Dx[age])
+        return float((ct.Nx[age] - ct.Nx[end_age]) / ct.Dx[age])
 
 
 def annuity_immediate(
@@ -194,10 +223,10 @@ def whole_life_insurance(
     -------
     float
     """
-    ct = commutation(table, rate)
+    ct, age = _prepare(table, age, rate)
     if ct.Dx[age] == 0:
         return 0.0
-    return ct.Mx[age] / ct.Dx[age]
+    return float(ct.Mx[age] / ct.Dx[age])
 
 
 def term_insurance(
@@ -221,13 +250,14 @@ def term_insurance(
     -------
     float
     """
-    ct = commutation(table, rate)
+    ct, age = _prepare(table, age, rate)
+    term = _check_term(term)
     if ct.Dx[age] == 0:
         return 0.0
     end_age = min(age + term, table.max_age + 1)
     if end_age > table.max_age:
-        return ct.Mx[age] / ct.Dx[age]
-    return (ct.Mx[age] - ct.Mx[end_age]) / ct.Dx[age]
+        return float(ct.Mx[age] / ct.Dx[age])
+    return float((ct.Mx[age] - ct.Mx[end_age]) / ct.Dx[age])
 
 
 def pure_endowment(
@@ -251,13 +281,14 @@ def pure_endowment(
     -------
     float
     """
-    ct = commutation(table, rate)
+    ct, age = _prepare(table, age, rate)
+    term = _check_term(term)
     if ct.Dx[age] == 0:
         return 0.0
     end_age = age + term
     if end_age > table.max_age:
         return 0.0
-    return ct.Dx[end_age] / ct.Dx[age]
+    return float(ct.Dx[end_age] / ct.Dx[age])
 
 
 def endowment_insurance(
@@ -347,7 +378,8 @@ def reserve_whole_life(
 
     tVx = A(x+t) − P(x) · ä(x+t)
     """
-    current_age = age_at_issue + duration
+    age_at_issue = table.check_age(age_at_issue)
+    current_age = age_at_issue + _check_term(duration)
     if current_age > table.max_age:
         return 0.0
     premium = net_premium_whole_life(table, age_at_issue, rate)

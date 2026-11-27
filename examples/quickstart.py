@@ -5,7 +5,7 @@ Ce script montre les principales fonctionnalités du package.
 Il peut être exécuté tel quel ou copié dans un notebook Jupyter.
 """
 
-from mortables import get_table, list_tables, life, cashflows
+from mortables import cashflows, get_table, life, list_tables
 
 # ============================================================
 # 1. Découvrir les tables disponibles
@@ -26,7 +26,7 @@ print(f"  Espérance de vie à 0 ans  : {th.life_expectancy(0):.1f} ans")
 print(f"  Espérance de vie à 65 ans : {th.life_expectancy(65):.1f} ans")
 
 tf = get_table("TF0002")
-print(f"\n=== Table TF 00-02 (Femmes) ===")
+print("\n=== Table TF 00-02 (Femmes) ===")
 print(f"  Espérance de vie à 0 ans  : {tf.life_expectancy(0):.1f} ans")
 print(f"  Espérance de vie à 65 ans : {tf.life_expectancy(65):.1f} ans")
 
@@ -34,7 +34,7 @@ print(f"  Espérance de vie à 65 ans : {tf.life_expectancy(65):.1f} ans")
 # 3. Table générationnelle
 # ============================================================
 print("\n=== Tables TGH 05 — Comparaison par génération ===")
-for gen in [1930, 1950, 1970, 1990]:
+for gen in [1940, 1950, 1970, 1990]:
     tg = get_table("TGH05", generation=gen)
     print(f"  Génération {gen} : e(65) = {tg.life_expectancy(65):.1f} ans, "
           f"qx(65) = {tg.qx_at(65):.5f}")
@@ -65,15 +65,16 @@ print(f"  Prime pure vie entière (P30)  : {p:.6f}")
 # ============================================================
 print("\n=== Projection de flux — Portefeuille de rentiers ===")
 portfolio = [
-    {"age": 65, "annual_rent": 12000},
-    {"age": 72, "annual_rent": 8000},
-    {"age": 58, "annual_rent": 15000},
+    {"age": 65, "annual_rent": 12000, "gender": "M", "birth_year": 1961},
+    {"age": 72, "annual_rent": 8000, "gender": "F", "birth_year": 1954},
+    {"age": 58, "annual_rent": 15000, "gender": "F", "birth_year": 1968},
 ]
 
-flows = cashflows.project(portfolio, table="TF0002", years=30, rate=0.02)
+# TGH05 / TGF05 selon le sexe, génération propre à chaque rentier
+flows = cashflows.project(portfolio, table="TGH05", rate=0.02)
 print(flows.head(10).to_string(index=False))
 
-prov = cashflows.total_provision(portfolio, table="TF0002", years=60, rate=0.02)
+prov = cashflows.total_provision(portfolio, table="TGH05", rate=0.02)
 print(f"\n  Provision totale (BEL) : {prov:,.0f} €")
 
 # ============================================================

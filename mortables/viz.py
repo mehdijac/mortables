@@ -9,9 +9,12 @@ Requires ``matplotlib`` (optional dependency).
 
 from __future__ import annotations
 
-from typing import List, Optional, Sequence, Union
+from typing import TYPE_CHECKING, List, Optional, Sequence, Union
 
 import numpy as np
+
+if TYPE_CHECKING:  # pragma: no cover
+    import pandas
 
 from .core import MortalityTable, get_table
 
@@ -134,8 +137,10 @@ def plot_survival(
     for tbl in resolved:
         ages = tbl.ages
         lx = tbl.lx.astype(float)
-        if normalize and lx[0] > 0:
-            lx = lx / lx[0]
+        if normalize:
+            first = lx[tbl.min_age] if tbl.min_age <= tbl.max_age else 0.0
+            if first > 0:
+                lx = lx / first
         if age_range:
             mask = (ages >= age_range[0]) & (ages <= age_range[1])
             ages = ages[mask]
@@ -236,12 +241,14 @@ def plot_comparison(
     min_age, max_age = age_range
     ages = np.arange(min_age, max_age + 1)
 
+    def _qx(tbl, age):
+        return tbl.qx[age] if age <= tbl.max_age else np.nan
+
     ratios = []
     for age in ages:
-        if age <= a.max_age and age <= b.max_age and b.qx_at(age) > 0:
-            ratios.append(a.qx_at(age) / b.qx_at(age))
-        else:
-            ratios.append(np.nan)
+        qa, qb = _qx(a, age), _qx(b, age)
+        ok = not (np.isnan(qa) or np.isnan(qb)) and qb > 0
+        ratios.append(qa / qb if ok else np.nan)
 
     ratios = np.array(ratios)
 

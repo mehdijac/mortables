@@ -1,5 +1,6 @@
 {
   "country": "France",
+  "source": "Fichiers Lx officiels diffusés sur ressources-actuarielles.net (ISFA) : TH00-02_D.xls, TF00-02_D.xls, TGHF05.xls",
   "tables": [
     {
       "id": "TH0002",
@@ -8,9 +9,9 @@
       "type": "period",
       "gender": "M",
       "regulation": "Arrêté du 20/12/2005",
-      "usage": "Provisionnement des engagements en cas de décès",
+      "usage": "Tarification et provisionnement des engagements en cas de décès",
       "file": "TH0002.csv",
-      "format": "csv"
+      "source": "TH00-02_D.xls (ISFA, ressources-actuarielles.net)"
     },
     {
       "id": "TF0002",
@@ -19,31 +20,31 @@
       "type": "period",
       "gender": "F",
       "regulation": "Arrêté du 20/12/2005",
-      "usage": "Provisionnement des engagements en cas de décès",
+      "usage": "Tarification et provisionnement des engagements en cas de décès",
       "file": "TF0002.csv",
-      "format": "csv"
+      "source": "TF00-02_D.xls (ISFA, ressources-actuarielles.net)"
     },
     {
       "id": "TGH05",
       "name": "TGH 05",
-      "description": "Table générationnelle masculine pour rentes viagères (INSEE)",
+      "description": "Table générationnelle masculine pour rentes viagères",
       "type": "generational",
       "gender": "M",
       "regulation": "Arrêté du 01/08/2006",
       "usage": "Tarification et provisionnement des rentes viagères",
-      "file": "TGH05.json",
-      "format": "json"
+      "file": "TGH05.csv",
+      "source": "TGHF05.xls, onglet HomSPL1-Lx (ISFA, ressources-actuarielles.net)"
     },
     {
       "id": "TGF05",
       "name": "TGF 05",
-      "description": "Table générationnelle féminine pour rentes viagères (INSEE)",
+      "description": "Table générationnelle féminine pour rentes viagères",
       "type": "generational",
       "gender": "F",
       "regulation": "Arrêté du 01/08/2006",
       "usage": "Tarification et provisionnement des rentes viagères",
-      "file": "TGF05.json",
-      "format": "json"
+      "file": "TGF05.csv",
+      "source": "TGHF05.xls, onglet FemSPL1-Lx (ISFA, ressources-actuarielles.net)"
     }
   ]
 }

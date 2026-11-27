@@ -1,8 +1,7 @@
 """Tests for mortables package."""
 
-import pytest
 import numpy as np
-
+import pytest
 
 # ===== Core =====
 
@@ -54,7 +53,8 @@ class TestCore:
         tg = get_table("TGH05", generation=1960)
         assert tg.generation == 1960
         assert tg.table_type == "generational"
-        assert tg.lx[0] == 100000
+        assert tg.min_age == 36  # official table starts at the age reached in 1996
+        assert tg.lx[tg.min_age] == 100000
         assert 0 < tg.qx_at(65) < 0.05
 
     def test_generational_improvement(self):
@@ -62,8 +62,8 @@ class TestCore:
         from mortables import get_table
         tg_old = get_table("TGH05", generation=1920)
         tg_new = get_table("TGH05", generation=1980)
-        # At age 70, the 1980 generation should have lower qx
-        assert tg_new.qx_at(70) < tg_old.qx_at(70)
+        # At age 80, the 1980 generation should have lower qx
+        assert tg_new.qx_at(80) < tg_old.qx_at(80)
 
     def test_generation_out_of_range(self):
         from mortables import get_table
@@ -198,7 +198,42 @@ class TestLife:
         for age in [20, 40, 60, 80]:
             ax = life.whole_life_insurance(th, age, rate)
             adx = life.annuity_due(th, age, rate)
-            assert abs(ax + d * adx - 1.0) < 0.01, f"Identity failed at age {age}"
+            assert abs(ax + d * adx - 1.0) < 1e-12, f"Identity failed at age {age}"
+
+    @pytest.mark.parametrize("rate", [-0.005, 0.0, 0.02, 0.05])
+    def test_annuity_matches_direct_sum(self, rate):
+        """äx = Σ v^k · kpx, computed independently of commutation numbers."""
+        from mortables import get_table, life
+        for tbl in (get_table("TF0002"), get_table("TGH05", generation=1960)):
+            for age in (65, 80, 100):
+                direct = sum(
+                    (1 + rate) ** -k * tbl.lx[age + k] / tbl.lx[age]
+                    for k in range(tbl.max_age - age + 1)
+                )
+                got = life.annuity_due(tbl, age, rate)
+                assert got == pytest.approx(direct, rel=1e-12)
+
+    def test_negative_rate_increases_annuity(self):
+        from mortables import get_table, life
+        th = get_table("TH0002")
+        assert life.annuity_due(th, 65, -0.005) > life.annuity_due(th, 65, 0.0)
+
+    def test_invalid_inputs(self):
+        from mortables import get_table, life
+        th = get_table("TH0002")
+        with pytest.raises(ValueError):
+            life.annuity_due(th, 65, -1.0)
+        with pytest.raises(TypeError):
+            life.annuity_due(th, 65.5, 0.02)
+        with pytest.raises(ValueError):
+            life.term_insurance(th, 40, 0.02, term=-1)
+        with pytest.raises(ValueError):
+            life.annuity_due(th, 200, 0.02)
+
+    def test_commutation_cached(self):
+        from mortables import get_table, life
+        th = get_table("TH0002")
+        assert life.commutation(th, 0.02) is life.commutation(th, 0.02)
 
 
 # ===== Cash flows =====
@@ -240,3 +275,48 @@ class TestCashflows:
         flows = project(pf, table="TF0002", years=40, rate=0.02)
         # Year 0: sum of all rents
         assert flows.iloc[0]["expected_payment"] == 35000.0
+
+    def test_negative_rate_is_applied(self):
+        """Regression: v.0.1.0 silently ignored rates ≤ 0."""
+        from mortables.cashflows import total_provision
+        pf = [{"age": 65, "annual_rent": 10000}]
+        assert total_provision(pf, rate=-0.005) > total_provision(pf, rate=0.0)
+
+    def test_provision_equals_sum_of_annuities(self):
+        from mortables import get_table, life
+        from mortables.cashflows import total_provision
+        pf = [
+            {"age": 65, "annual_rent": 12000, "gender": "M", "birth_year": 1960},
+            {"age": 72, "annual_rent": 8000, "gender": "F", "birth_year": 1953},
+            {"age": 58, "annual_rent": 15000, "gender": "M", "birth_year": 1967},
+        ]
+        expected = sum(
+            p["annual_rent"] * life.annuity_due(
+                get_table("TGH05" if p["gender"] == "M" else "TGF05",
+                          generation=p["birth_year"]),
+                p["age"], 0.015,
+            )
+            for p in pf
+        )
+        got = total_provision(pf, table="TGH05", rate=0.015)
+        assert got == pytest.approx(expected, rel=1e-12)
+
+    def test_each_annuitant_has_own_generation(self):
+        from mortables.cashflows import total_provision
+        old = total_provision([{"age": 70, "annual_rent": 1, "birth_year": 1940}],
+                              table="TGF05", rate=0.01)
+        young = total_provision([{"age": 70, "annual_rent": 1, "birth_year": 1980}],
+                                table="TGF05", rate=0.01)
+        assert young > old
+
+    def test_gender_switches_table(self):
+        from mortables.cashflows import total_provision
+        pf = [{"age": 65, "annual_rent": 1, "gender": "F"}]
+        f = total_provision(pf, table="TH0002")
+        tf = total_provision([{"age": 65, "annual_rent": 1}], table="TF0002")
+        assert f == pytest.approx(tf)
+
+    def test_generational_requires_birth_year(self):
+        from mortables.cashflows import project
+        with pytest.raises(ValueError, match="generation"):
+            project([{"age": 65, "annual_rent": 1}], table="TGH05")

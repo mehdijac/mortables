@@ -2,20 +2,25 @@
 Core module — loading, accessing and manipulating mortality tables.
 
 Two table types are supported:
-  • **Period tables** (TH 00-02, TF 00-02): a single column of qx indexed by age.
-  • **Generational tables** (TGH 05, TGF 05): qx depends on both age and birth year.
-    Stored as a base qx vector + annual improvement rates; any generation between
-    1900 and 2005 can be derived on the fly.
+  • **Period tables** (TH 00-02, TF 00-02): a single column of lx indexed by age.
+  • **Generational tables** (TGH 05, TGF 05): lx depends on both age and birth
+    year.  The official tables are stored as published (one lx column per
+    generation 1900–2005); nothing is extrapolated or re-modelled.
+
+In the official generational tables, a generation's lx column only starts at
+the age reached in 1996 (radix 100 000 at that age).  Earlier ages are not
+defined by the regulation: they are stored as ``NaN`` and any calculation
+requested at such an age raises a ``ValueError``.
 """
 
 from __future__ import annotations
 
 import csv
 import json
-import math
 from dataclasses import dataclass, field
+from functools import lru_cache
 from pathlib import Path
-from typing import Dict, List, Optional, Sequence
+from typing import Dict, List, Optional, Tuple
 
 import numpy as np
 
@@ -23,7 +28,50 @@ import numpy as np
 # Where the data lives (inside the installed package)
 # ---------------------------------------------------------------------------
 _DATA_DIR = Path(__file__).parent / "tables"
-_FR_DIR = _DATA_DIR / "france"
+
+
+# ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
+def _lx_to_qx(lx: np.ndarray) -> np.ndarray:
+    """
+    Derive qx from lx: ``qx = 1 − l(x+1) / l(x)``.
+
+    The table is closed at the last age (``q_ω = 1``) and wherever ``lx = 0``.
+    Ages where lx is undefined (``NaN``) get ``qx = NaN``.
+    """
+    lx = np.asarray(lx, dtype=float)
+    qx = np.ones_like(lx)
+    nxt = lx[1:]
+    cur = lx[:-1]
+    with np.errstate(divide="ignore", invalid="ignore"):
+        q = 1.0 - np.where(cur > 0, nxt / cur, 0.0)
+    qx[:-1] = q
+    qx[np.isnan(lx)] = np.nan
+    return qx
+
+
+def _qx_to_lx(qx: np.ndarray, radix: float = 100_000.0) -> np.ndarray:
+    """Convert qx to lx (float, no rounding) with a given radix."""
+    qx = np.asarray(qx, dtype=float)
+    lx = np.empty_like(qx)
+    lx[0] = radix
+    lx[1:] = radix * np.cumprod(1.0 - qx[:-1])
+    return lx
+
+
+def _as_age(age) -> int:
+    """Validate that *age* is an integer (int or integral numpy scalar)."""
+    if isinstance(age, (bool, np.bool_)):
+        raise TypeError("age must be an integer")
+    if isinstance(age, (int, np.integer)):
+        return int(age)
+    if isinstance(age, (float, np.floating)) and float(age).is_integer():
+        return int(age)
+    raise TypeError(
+        f"age must be an integer, got {age!r} (fractional ages are not "
+        "supported yet)"
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -32,8 +80,7 @@ _FR_DIR = _DATA_DIR / "france"
 @dataclass
 class MortalityTable:
     """
-    A mortality table: a vector of qx (probability of death within one year)
-    indexed by integer age.
+    A mortality table indexed by integer age ``0 … max_age``.
 
     Attributes
     ----------
@@ -48,9 +95,10 @@ class MortalityTable:
     ages : np.ndarray
         Array of integer ages ``[0, 1, 2, …, max_age]``.
     qx : np.ndarray
-        Probability of death at each age.
+        Probability of death at each age (``NaN`` where undefined, 1 at the
+        last age).
     lx : np.ndarray
-        Number of survivors at each age (radix = 100 000).
+        Number of survivors at each age (float; ``NaN`` where undefined).
     generation : int or None
         Birth year, for generational tables only.
     metadata : dict
@@ -66,6 +114,40 @@ class MortalityTable:
     lx: np.ndarray
     generation: Optional[int] = None
     metadata: Dict = field(default_factory=dict)
+    _cache: Dict = field(default_factory=dict, repr=False, compare=False)
+
+    # -- Constructors ---------------------------------------------------------
+
+    @classmethod
+    def from_lx(cls, lx, name: str = "custom", gender: str = "U", **kwargs):
+        """Build a table from an lx vector indexed by age 0, 1, 2, …"""
+        lx = np.asarray(lx, dtype=float)
+        return cls(
+            name=name,
+            description=kwargs.pop("description", name),
+            gender=gender,
+            table_type=kwargs.pop("table_type", "period"),
+            ages=np.arange(len(lx)),
+            qx=_lx_to_qx(lx),
+            lx=lx,
+            **kwargs,
+        )
+
+    @classmethod
+    def from_qx(cls, qx, name: str = "custom", gender: str = "U",
+                radix: float = 100_000.0, **kwargs):
+        """Build a table from a qx vector indexed by age 0, 1, 2, …"""
+        qx = np.asarray(qx, dtype=float)
+        return cls(
+            name=name,
+            description=kwargs.pop("description", name),
+            gender=gender,
+            table_type=kwargs.pop("table_type", "period"),
+            ages=np.arange(len(qx)),
+            qx=qx,
+            lx=_qx_to_lx(qx, radix),
+            **kwargs,
+        )
 
     # -- Derived quantities --------------------------------------------------
 
@@ -74,44 +156,67 @@ class MortalityTable:
         return int(self.ages[-1])
 
     @property
+    def min_age(self) -> int:
+        """First age at which the table is defined (0 for period tables)."""
+        defined = np.flatnonzero(~np.isnan(self.lx))
+        return int(defined[0]) if defined.size else self.max_age + 1
+
+    @property
     def px(self) -> np.ndarray:
         """Probability of surviving the year: px = 1 − qx."""
         return 1.0 - self.qx
 
     @property
     def dx(self) -> np.ndarray:
-        """Expected deaths between age x and x+1 (for radix 100 000)."""
+        """Expected deaths between age x and x+1."""
         return self.lx * self.qx
 
     @property
     def ex(self) -> np.ndarray:
-        """Curtate life expectancy at each age."""
-        n = len(self.lx)
-        ex = np.zeros(n)
-        for i in range(n):
-            if self.lx[i] == 0:
-                ex[i] = 0.0
-            else:
-                ex[i] = np.sum(self.lx[i + 1:]) / self.lx[i]
+        """Curtate life expectancy at each age: ``Σ_{k≥1} l(x+k) / l(x)``."""
+        lx = np.nan_to_num(self.lx, nan=0.0)
+        tail = np.concatenate([np.cumsum(lx[::-1])[::-1][1:], [0.0]])
+        with np.errstate(divide="ignore", invalid="ignore"):
+            ex = np.where(lx > 0, tail / np.where(lx > 0, lx, 1.0), 0.0)
+        ex[np.isnan(self.lx)] = np.nan
         return ex
+
+    # -- Validation ------------------------------------------------------------
+
+    def check_age(self, age) -> int:
+        """
+        Return *age* as an int, or raise if it is not an integer within
+        ``[min_age, max_age]``.
+        """
+        age = _as_age(age)
+        if age < 0 or age > self.max_age:
+            raise ValueError(f"Age {age} is out of range [0, {self.max_age}]")
+        if np.isnan(self.lx[age]):
+            raise ValueError(
+                f"Age {age} is not defined in table '{self.name}' "
+                f"(first defined age: {self.min_age})"
+            )
+        return age
 
     # -- Convenience methods -------------------------------------------------
 
     def qx_at(self, age: int) -> float:
         """Return qx at a given age."""
-        if age < 0 or age > self.max_age:
-            raise ValueError(f"Age {age} is out of range [0, {self.max_age}]")
-        return float(self.qx[age])
+        return float(self.qx[self.check_age(age)])
 
     def survival_probability(self, from_age: int, to_age: int) -> float:
         """Probability of surviving from *from_age* to *to_age*."""
+        from_age = self.check_age(from_age)
+        to_age = _as_age(to_age)
         if from_age > to_age:
             raise ValueError("from_age must be ≤ to_age")
-        return float(np.prod(self.px[from_age:to_age]))
+        if to_age > self.max_age:
+            return 0.0
+        return float(self.lx[to_age] / self.lx[from_age]) if self.lx[from_age] else 0.0
 
     def life_expectancy(self, age: int = 0) -> float:
         """Curtate life expectancy at *age*."""
-        return float(self.ex[age])
+        return float(self.ex[self.check_age(age)])
 
     def __repr__(self) -> str:
         gen = f", generation={self.generation}" if self.generation else ""
@@ -137,57 +242,37 @@ class MortalityTable:
 
 
 # ---------------------------------------------------------------------------
-# Internal loaders
+# Internal loaders (cached: files are read once per process)
 # ---------------------------------------------------------------------------
-def _load_period_csv(filepath: Path) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
-    """Read a period table CSV → (ages, lx, qx)."""
-    ages, lx, qx = [], [], []
-    with open(filepath, newline="") as f:
-        reader = csv.DictReader(f)
-        for row in reader:
+def _parse(value: str) -> float:
+    return float(value) if value.strip() != "" else np.nan
+
+
+@lru_cache(maxsize=None)
+def _load_period_csv(filepath: Path) -> Tuple[np.ndarray, np.ndarray]:
+    """Read a period table CSV (columns ``age, lx``) → (ages, lx)."""
+    ages, lx = [], []
+    with open(filepath, newline="", encoding="utf-8") as f:
+        for row in csv.DictReader(f):
             ages.append(int(row["age"]))
-            lx.append(float(row["lx"]))
-            qx.append(float(row["qx"]))
-    return np.array(ages), np.array(lx), np.array(qx)
+            lx.append(_parse(row["lx"]))
+    return np.array(ages), np.array(lx, dtype=float)
 
 
-def _load_generational_json(filepath: Path) -> dict:
-    """Read a generational table JSON (base_qx + improvement rates)."""
-    with open(filepath) as f:
-        return json.load(f)
-
-
-def _derive_generation_qx(
-    base_qx: Sequence[float],
-    improvements: Sequence[float],
-    base_gen: int,
-    target_gen: int,
-) -> np.ndarray:
-    """
-    Derive qx for a specific generation from the base table.
-
-    Formula:  qx(gen, age) = base_qx(age) × exp(−improvement(age) × (gen − base_gen))
-
-    Later generations have lower mortality (positive improvements → lower qx).
-    """
-    shift = target_gen - base_gen
-    qx = np.array(
-        [
-            min(bq * math.exp(-imp * shift), 1.0)
-            for bq, imp in zip(base_qx, improvements)
-        ]
-    )
-    return np.clip(qx, 0.0, 1.0)
-
-
-def _qx_to_lx(qx: np.ndarray, radix: int = 100_000) -> np.ndarray:
-    """Convert qx to lx with a given radix."""
-    n = len(qx)
-    lx = np.zeros(n)
-    lx[0] = radix
-    for i in range(1, n):
-        lx[i] = lx[i - 1] * (1 - qx[i - 1])
-    return np.round(lx).astype(int)
+@lru_cache(maxsize=None)
+def _load_generational_csv(filepath: Path) -> Tuple[np.ndarray, Dict[int, np.ndarray]]:
+    """Read a wide generational CSV (``age, <gen1>, <gen2>, …``)."""
+    with open(filepath, newline="", encoding="utf-8") as f:
+        reader = csv.reader(f)
+        header = next(reader)
+        gens = [int(g) for g in header[1:]]
+        rows = list(reader)
+    ages = np.array([int(r[0]) for r in rows])
+    by_gen = {
+        g: np.array([_parse(r[j]) for r in rows], dtype=float)
+        for j, g in enumerate(gens, start=1)
+    }
+    return ages, by_gen
 
 
 # ---------------------------------------------------------------------------
@@ -195,22 +280,39 @@ def _qx_to_lx(qx: np.ndarray, radix: int = 100_000) -> np.ndarray:
 # ---------------------------------------------------------------------------
 _CATALOGUE: Optional[dict] = None
 
+_ALIASES = {
+    "TH00-02": "TH0002",
+    "TF00-02": "TF0002",
+    "TH-00-02": "TH0002",
+    "TF-00-02": "TF0002",
+    "TH": "TH0002",
+    "TF": "TF0002",
+    "TGH2005": "TGH05",
+    "TGF2005": "TGF05",
+}
+
 
 def _load_catalogue() -> dict:
     global _CATALOGUE
     if _CATALOGUE is not None:
         return _CATALOGUE
 
-    _CATALOGUE = {}
-    for tables_json in _DATA_DIR.rglob("TABLES.json"):
-        with open(tables_json) as f:
+    catalogue = {}
+    for tables_json in sorted(_DATA_DIR.rglob("TABLES.json")):
+        with open(tables_json, encoding="utf-8") as f:
             info = json.load(f)
         country = info.get("country", "Unknown")
         for tbl in info["tables"]:
             tbl["_country"] = country
             tbl["_dir"] = tables_json.parent
-            _CATALOGUE[tbl["id"]] = tbl
+            catalogue[tbl["id"]] = tbl
+    _CATALOGUE = catalogue
     return _CATALOGUE
+
+
+def _normalise_id(table_id: str) -> str:
+    key = table_id.upper().replace(" ", "")
+    return _ALIASES.get(key, key)
 
 
 # ---------------------------------------------------------------------------
@@ -225,7 +327,7 @@ def list_tables() -> List[Dict]:
     -------
     list of dict
         Each dict contains ``id``, ``name``, ``description``, ``type``,
-        ``gender``, and ``regulation``.
+        ``gender``, ``regulation``, ``usage``, ``file`` and ``source``.
 
     Examples
     --------
@@ -258,7 +360,8 @@ def get_table(
         ``"TH0002"``, ``"TF0002"``, ``"TGH05"``, ``"TGF05"``.
         Common aliases are also supported: ``"TH00-02"`` → ``"TH0002"``, etc.
     generation : int, optional
-        Birth year (required for generational tables TGH05/TGF05).
+        Birth year (required for generational tables TGH05/TGF05,
+        ignored for period tables).
 
     Returns
     -------
@@ -274,25 +377,16 @@ def get_table(
     --------
     >>> from mortables import get_table
     >>> th = get_table("TH0002")
-    >>> th.qx_at(65)
-    0.02304736
-    >>> th.life_expectancy(0)
-    75.8...
+    >>> th.lx[60]
+    85538.0
+    >>> round(th.life_expectancy(0), 5)
+    75.00752
 
-    >>> tg = get_table("TGH05", generation=1960)
-    >>> tg.life_expectancy(65)
-    22.1...
+    >>> tg = get_table("TGH05", generation=1950)
+    >>> tg.lx[60]
+    96430.0
     """
-    # Normalise aliases
-    aliases = {
-        "TH00-02": "TH0002",
-        "TF00-02": "TF0002",
-        "TH-00-02": "TH0002",
-        "TF-00-02": "TF0002",
-        "TH": "TH0002",
-        "TF": "TF0002",
-    }
-    table_id = aliases.get(table_id.upper().replace(" ", ""), table_id.upper().replace(" ", ""))
+    table_id = _normalise_id(table_id)
 
     cat = _load_catalogue()
     if table_id not in cat:
@@ -303,63 +397,51 @@ def get_table(
 
     entry = cat[table_id]
     filepath = entry["_dir"] / entry["file"]
+    metadata = {
+        "regulation": entry.get("regulation", ""),
+        "usage": entry.get("usage", ""),
+        "country": entry.get("_country", ""),
+        "source": entry.get("source", ""),
+    }
 
     if entry["type"] == "period":
-        ages, lx, qx = _load_period_csv(filepath)
+        ages, lx = _load_period_csv(filepath)
+        lx = lx.copy()
         return MortalityTable(
             name=entry["id"],
             description=entry["description"],
             gender=entry["gender"],
             table_type="period",
-            ages=ages,
-            qx=qx,
+            ages=ages.copy(),
+            qx=_lx_to_qx(lx),
             lx=lx,
-            metadata={
-                "regulation": entry.get("regulation", ""),
-                "usage": entry.get("usage", ""),
-                "country": entry.get("_country", ""),
-            },
+            metadata=metadata,
         )
 
-    elif entry["type"] == "generational":
+    if entry["type"] == "generational":
+        ages, by_gen = _load_generational_csv(filepath)
+        min_gen, max_gen = min(by_gen), max(by_gen)
         if generation is None:
             raise ValueError(
                 f"Table '{table_id}' is generational: you must provide a "
-                f"'generation' (birth year between 1900 and 2005)."
+                f"'generation' (birth year between {min_gen} and {max_gen})."
             )
-        data = _load_generational_json(filepath)
-        min_gen = data["min_generation"]
-        max_gen = data["max_generation"]
-        if not (min_gen <= generation <= max_gen):
+        generation = _as_age(generation)
+        if generation not in by_gen:
             raise ValueError(
                 f"Generation {generation} out of range [{min_gen}, {max_gen}]"
             )
-
-        qx = _derive_generation_qx(
-            data["base_qx"],
-            data["annual_improvement"],
-            data["base_generation"],
-            generation,
-        )
-        ages = np.arange(len(qx))
-        lx = _qx_to_lx(qx)
-
+        lx = by_gen[generation].copy()
         return MortalityTable(
             name=f"{entry['id']}_{generation}",
             description=f"{entry['description']} — génération {generation}",
             gender=entry["gender"],
             table_type="generational",
-            ages=ages,
-            qx=qx,
+            ages=ages.copy(),
+            qx=_lx_to_qx(lx),
             lx=lx,
             generation=generation,
-            metadata={
-                "regulation": entry.get("regulation", ""),
-                "usage": entry.get("usage", ""),
-                "country": entry.get("_country", ""),
-                "base_generation": data["base_generation"],
-            },
+            metadata=metadata,
         )
 
-    else:
-        raise ValueError(f"Unsupported table type: {entry['type']}")
+    raise ValueError(f"Unsupported table type: {entry['type']}")
