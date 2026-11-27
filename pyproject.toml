@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "mortables"
-version = "0.1.2"
+version = "0.2.0"
 description = "Tables de mortalité réglementaires françaises et fonctions actuarielles"
 readme = "README.md"
 license = "MIT"
@@ -14,7 +14,7 @@ authors = [
 ]
 keywords = [
     "actuarial", "mortality", "life insurance", "annuity",
-    "TH0002", "TF0002", "TGH05", "TGF05",
+    "TH0002", "TF0002", "TGH05", "TGF05", "TGHF05",
     "actuariat", "mortalité", "assurance vie", "rente viagère",
 ]
 classifiers = [

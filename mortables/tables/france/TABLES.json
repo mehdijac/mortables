@@ -45,6 +45,17 @@
       "usage": "Tarification et provisionnement des rentes viagères",
       "file": "TGF05.csv",
       "source": "TGHF05.xls, onglet FemSPL1-Lx (ISFA, ressources-actuarielles.net)"
+    },
+    {
+      "id": "TGHF05",
+      "name": "TGHF 05",
+      "description": "Table générationnelle non genrée pour la retraite supplémentaire collective (60 % TGH05, 40 % TGF05)",
+      "type": "generational",
+      "gender": "U",
+      "regulation": "Arrêté du 18/11/2024 (NOR ECOT2426307A, JO du 22/11/2024)",
+      "usage": "Rentes viagères des contrats collectifs de retraite supplémentaire (loi Industrie verte)",
+      "file": "TGHF05.csv",
+      "source": "Construite selon l'arrêté : lx = 0,6 × lx TGH05 + 0,4 × lx TGF05, arrondi à l'entier. Vérifiée contre les 14 valeurs de rentes TGHF05 publiées par SPAC Actuaires (11/2024). Nom « TGHF05 » d'usage (SPAC)."
     }
   ]
 }
