@@ -76,13 +76,20 @@ Taux négatifs acceptés. Flux année par année : `cashflows.project(rentiers, 
 
 ## Graphiques
 
-```python
-from mortables import viz       # pip install "mortables[viz]"
+```bash
+pip install "mortables[viz]"     # ou : uv add "mortables[viz]"  (guillemets requis sous zsh)
+```
 
-viz.plot_qx(["TH0002", "TF0002"])                                # courbes de mortalité
-viz.plot_generations("TGH05", generations=[1950, 1970, 1990])    # effet génération
+```python
+from mortables import viz
+
+viz.plot_qx(["TH0002", "TF0002"], save="qx.png")                 # → enregistre une image
+viz.plot_generations("TGH05", generations=[1950, 1970, 1990], show=True)   # → ouvre une fenêtre
 viz.plot_cashflows(cashflows.project(rentiers, table="TGH05", rate=0.02))
 ```
+
+Dans **Jupyter**, le graphique s'affiche tout seul (dernière ligne de la cellule).
+Dans un **script**, ajoutez `save="fichier.png"` ou `show=True`.
 
 ## Bon à savoir
 
