@@ -1,14 +1,31 @@
-# mortables
+<p align="center">
+  <img src="docs/images/mortables-banner.svg" alt="mortables — l’actuariat en clair" width="100%">
+</p>
 
-**Les tables de mortalité réglementaires françaises en Python. Exactes. En une ligne.**
+<h1 align="center">Les tables de mortalité françaises, en Python.</h1>
+
+<p align="center"><strong>Des données réglementaires aux calculs actuariels, en quelques lignes.</strong></p>
 
 [![CI](https://github.com/mehdijac/mortables/actions/workflows/ci.yml/badge.svg)](https://github.com/mehdijac/mortables/actions)
 [![PyPI](https://img.shields.io/pypi/v/mortables.svg)](https://pypi.org/project/mortables/)
 [![Python 3.9+](https://img.shields.io/badge/python-3.9+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
-Fini les `qx` copiés-collés depuis un PDF ou un Excel douteux.
-TH/TF 00-02, TGH/TGF 05 et la table non genrée 2024 sont embarquées, vérifiées, prêtes à l'emploi.
+**mortables** réunit les tables TH/TF 00-02, TGH/TGF 05 et TGHF05 avec les outils
+pour calculer des rentes, projeter des flux et explorer la mortalité. Les données sont
+embarquées : aucun téléchargement n'est nécessaire à l'exécution.
+
+<p align="center">
+  <img src="docs/images/generations.gif" alt="Courbes de survie TGH05 à partir de 65 ans, des générations 1931 à 2005 : l'espérance de vie à 65 ans passe de 20,9 à 30,9 ans" width="100%">
+</p>
+
+[Prise en main](#en-30-secondes) · [Tables incluses](#tables-incluses) ·
+[Rentes](#rentes-viagères-comme-dans-la-vraie-vie) · [Graphiques](#graphiques) ·
+[Contribuer](#contribuer)
+
+## Installation
+
+Python 3.9 ou supérieur est nécessaire.
 
 ```bash
 pip install mortables        # ou : uv add mortables
@@ -39,11 +56,11 @@ Chaque rentier est valorisé avec **sa** génération et **sa** table (TGH05 ou 
 
 ## Pourquoi mortables
 
-- ✅ **Exact** : les Lx officiels, à l'identique, contrôlés par des tests de référence
-- 🧮 **Complet** : rentes, assurances décès, capitaux différés, primes pures, provisions
-- 💶 **Portefeuilles** : projection des flux et provision en un appel
-- 📈 **Visuel** : les graphiques classiques en une ligne
-- 📦 **Hors ligne** : tout est dans le package, rien à télécharger
+- **Exact** : les Lx officiels, à l'identique, contrôlés par des tests de référence
+- **Complet** : rentes, assurances décès, capitaux différés, primes pures, provisions
+- **Portefeuilles** : projection des flux et provision en un appel
+- **Visuel** : les graphiques classiques en une ligne
+- **Hors ligne** : tout est dans le package, rien à télécharger
 
 ## Tables incluses
 
@@ -90,7 +107,7 @@ tg.scaled(0.80)        # qx × 0,80 — choc de longévité
 tg.scaled(1.15)        # qx × 1,15 — choc de mortalité
 ```
 
-📓 Exemple complet : [valoriser un portefeuille de rentiers](examples/portefeuille_rentiers.ipynb)
+Exemple complet : [valoriser un portefeuille de rentiers](examples/portefeuille_rentiers.ipynb)
 (rentes mensuelles réversibles, choc de longévité, passage à TGHF05).
 
 ## Fonctions classiques
@@ -136,11 +153,11 @@ Dans un **script**, ajoutez `save="fichier.png"` ou `show=True`.
 - **Références externes** : les rentes TGH05, TGF05 et TGHF05 (avec et sans réversion) publiées par SPAC Actuaires sont retrouvées au centime près (`tests/test_annuity.py`).
 - **Sources** : fichiers Lx diffusés par l'ISFA sur [ressources-actuarielles.net](http://www.ressources-actuarielles.net/EXT/ISFA/fp-isfa.nsf/34a14c286dfb0903c1256ffd00502d73/762c8e624ee98a5ec12577c100566d11). Seuls les textes du Journal officiel font foi.
 
-> ⚠️ Vous utilisez la **0.1.0** ? Mettez à jour : ses tables étaient inexactes. Détails dans le [CHANGELOG](CHANGELOG.md).
+> Vous utilisez la **0.1.0** ? Mettez à jour : ses tables étaient inexactes. Détails dans le [CHANGELOG](CHANGELOG.md).
 
 ## Bientôt
 
-Portefeuilles de rentes mensuelles et réversibles · TD/TV 88-90 · Solvabilité 2 (courbe EIOPA, chocs) · analyse d'expérience (A/E).
+TD/TV 88-90 · Solvabilité 2 (courbe EIOPA, chocs) · analyse d'expérience (A/E).
 
 Une table ou une fonction vous manque ? [Ouvrez une issue](https://github.com/mehdijac/mortables/issues).
 
@@ -151,4 +168,4 @@ git clone https://github.com/mehdijac/mortables.git && cd mortables
 uv sync && uv run pytest
 ```
 
-Voir [CONTRIBUTING.md](CONTRIBUTING.md). Licence [MIT](LICENSE).
+Voir [CONTRIBUTING.md](CONTRIBUTING.md) pour contribuer. Licence [MIT](LICENSE).

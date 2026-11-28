@@ -37,3 +37,7 @@ Thumbs.db
 # Distribution
 *.whl
 *.tar.gz
+
+# Agents instructions
+AGENTS.md
+
