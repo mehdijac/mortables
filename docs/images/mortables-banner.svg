@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="320" viewBox="0 0 1200 320" role="img" aria-labelledby="title desc">
+  <title id="title">mortables — l'actuariat en clair</title>
+  <desc id="desc">Une courbe de survie stylisée accompagne le nom mortables.</desc>
+  <defs>
+    <linearGradient id="bg" x2="1" y2="1"><stop stop-color="#101d35"/><stop offset="1" stop-color="#193c4a"/></linearGradient>
+    <linearGradient id="line" x2="1" y2="0"><stop stop-color="#86efce"/><stop offset="1" stop-color="#53b9d7"/></linearGradient>
+  </defs>
+  <rect width="1200" height="320" rx="24" fill="url(#bg)"/>
+  <g opacity=".11" stroke="#d5f6ef"><path d="M720 70H1120M720 130H1120M720 190H1120M720 250H1120"/><path d="M780 45V270M860 45V270M940 45V270M1020 45V270M1100 45V270"/></g>
+  <path d="M735 89 C800 90 844 95 885 110 S954 151 984 187 S1047 236 1110 248" fill="none" stroke="url(#line)" stroke-width="6" stroke-linecap="round"/>
+  <circle cx="984" cy="187" r="8" fill="#a6f4d9"/>
+  <rect x="68" y="70" width="54" height="54" rx="16" fill="#a6f4d9"/>
+  <path d="M80 86h9l6 14 6-14h9v23h-7V96l-6 13h-4l-6-13v13h-7z" fill="#163047"/>
+  <text x="68" y="187" fill="#f3faf8" font-family="Arial, Helvetica, sans-serif" font-size="82" font-weight="700" letter-spacing="-3">mortables<tspan fill="#8de7cb">.</tspan></text>
+  <text x="72" y="234" fill="#b4d6d2" font-family="Arial, Helvetica, sans-serif" font-size="23" letter-spacing="1">L’ACTUARIAT EN CLAIR</text>
+</svg>
